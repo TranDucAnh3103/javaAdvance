@@ -15,7 +15,7 @@ public class ConnectDB {
         PoolProperties p = new PoolProperties();
 
         // Thông tin kết nối database
-        p.setUrl("jdbc:mysql://localhost:3306/Project_DB");
+        p.setUrl("jdbc:mysql://localhost:3306/project_db");
         p.setDriverClassName("com.mysql.cj.jdbc.Driver");
         p.setUsername("root");
         p.setPassword("310306");
@@ -24,6 +24,9 @@ public class ConnectDB {
 
         // Số connection tối đa trong pool
         p.setMaxActive(20);
+
+        // Số connection nhàn rỗi tối đa (phải <= maxActive để tránh cảnh báo)
+        p.setMaxIdle(20);
 
         // Số connection được tạo sẵn ban đầu
         p.setInitialSize(5);
@@ -42,6 +45,7 @@ public class ConnectDB {
 
     /**
      * Lấy connection từ pool
+     * 
      * @return Connection đã được quản lý bởi pool
      * @throws Exception nếu không lấy được connection
      */
@@ -49,7 +53,6 @@ public class ConnectDB {
         return dataSource.getConnection();
     }
 }
-
 
 /*
  * ================== TOMCAT JDBC CONNECTION POOL ==================
@@ -70,10 +73,10 @@ public class ConnectDB {
  * - Kiểm soát số lượng connection đồng thời
  *
  * Các cấu hình quan trọng:
- * - maxActive     : số connection tối đa trong pool
- * - initialSize   : số connection tạo sẵn khi khởi động
- * - maxWait       : thời gian chờ khi pool hết connection
- * - testOnBorrow  : kiểm tra connection trước khi cấp phát
+ * - maxActive : số connection tối đa trong pool
+ * - initialSize : số connection tạo sẵn khi khởi động
+ * - maxWait : thời gian chờ khi pool hết connection
+ * - testOnBorrow : kiểm tra connection trước khi cấp phát
  * - validationQuery: câu SQL dùng để kiểm tra connection (ví dụ: SELECT 1)
  *
  * Lưu ý:

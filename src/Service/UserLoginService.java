@@ -8,6 +8,7 @@ public class UserLoginService {
 
     private UserLoginDAO userDAO = new UserLoginDAO();
 
+    // dang nhap
     public User login(String email, String rawPassword) {
         try {
             User user = userDAO.getUserByEmail(email);
@@ -16,7 +17,7 @@ public class UserLoginService {
                 String hashedPassword = user.getPassword();
 
                 BCrypt.Result result = BCrypt.verifyer()
-                        .verify(rawPassword.toCharArray(), hashedPassword);
+                        .verify(rawPassword.toCharArray(), hashedPassword); // nếu pass chưa được hass thì khong kiểm tra được
 
                 if (result.verified) {
                     return user; // OK, password đúng
@@ -29,6 +30,7 @@ public class UserLoginService {
         return null;
     }
 
+    // dang ky
     public boolean register(User user) {
         if (user == null || user.getPassword() == null || user.getPassword().trim().isEmpty()) {
             System.err.println("Lỗi: Thông tin người dùng hoặc mật khẩu không hợp lệ.");

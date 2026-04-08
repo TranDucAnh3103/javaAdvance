@@ -25,7 +25,7 @@ public class UserLoginDAO {
                             rs.getString("phone"),
                             rs.getString("password"),
                             rs.getString("address"),
-                            User.UserRole.valueOf(rs.getString("role")),
+                            User.UserRole.valueOf(rs.getString("role").toUpperCase().trim()),
                             rs.getTimestamp("created_at"),
                             rs.getBoolean("is_active")
                     );
