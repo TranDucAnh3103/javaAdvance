@@ -1,0 +1,79 @@
+MẪU ĐẶC TẢ YÊU CẦU DỰ ÁN (SRS) – JAVA CORE + JDBC
+Tên đề tài: Hệ thống Quản lý Shop Bán Điện Thoại Online (SmartPhone Store Management)
+Mã dự án: PRJ-PHONE-STORE-JAVA-02
+
+I. Tổng quan Dự án (Project Overview)
+1.1. Bối cảnh
+Các cửa hàng điện thoại hiện nay cần một hệ thống quản lý tập trung từ khâu nhập hàng, trưng bày sản phẩm đến khâu chốt đơn và vận chuyển. Quản lý thủ công dẫn đến:
+Sai sót số lượng tồn kho (biến thể màu sắc, dung lượng).
+Khó quản lý trạng thái đơn hàng (đã thanh toán, đang giao).
+Khách hàng khó tìm kiếm và so sánh sản phẩm.
+1.2. Mục tiêu hệ thống
+Xây dựng một ứng dụng Java Console giúp:
+Khách hàng: Xem sản phẩm, đặt hàng và quản lý đơn mua.
+Admin: Quản lý kho hàng, xử lý đơn và thống kê doanh thu.
+Lưu ý quan trọng cho sinh viên: Đây là tài liệu SRS. Sinh viên dựa vào đây để thiết kế CSDL MySQL, xây dựng các lớp DAO, Service và áp dụng tính chất OOP (Kế thừa, Đóng gói, Đa hình).
+
+II. Đối tượng người dùng (User Roles)
+2.1. Khách hàng (Customer)
+Đăng ký tài khoản và cập nhật thông tin nhận hàng.
+Tìm kiếm điện thoại theo hãng (iPhone, Samsung...), mức giá.
+Đặt mua sản phẩm và xem lịch sử đơn hàng.
+2.2. Quản trị viên (Admin)
+Quản lý danh mục sản phẩm và số lượng tồn kho.
+Cập nhật trạng thái đơn hàng khi giao cho vận chuyển.
+Quản lý khách hàng.
+Xem báo cáo doanh thu và các sản phẩm bán chạy.
+
+III. Yêu cầu chức năng cơ bản (Bắt buộc)
+3.1. Phân hệ Tài khoản & Xác thực
+Đăng ký/Đăng nhập: Phân quyền rõ ràng (Admin / Customer).
+Quản lý hồ sơ: Lưu thông tin tên , email , số điện thoại, địa chỉ giao hàng .
+Mã hóa: Mật khẩu khi lưu vào MySQL phải được mã hóa (BCrypt).
+3.2. Phân hệ Quản lý Danh mục (Admin)
+Thêm mới danh mục .
+Hiển thị danh mục .
+Xóa danh mục .
+Cập nhật danh mục .
+3.3. Phân hệ Quản lý Sản phẩm (Admin)
+Mỗi điện thoại cần quản lý các thông tin:
+Tên điện thoại, Hãng sản xuất.
+Dung lượng (128GB, 256GB...), Màu sắc.
+Giá bán, Số lượng trong kho.
+Mô tả ngắn gọn về thông số kỹ thuật.
+Quản lý sản phẩm gồm các chức năng :
+Thêm mới sản phẩm
+Sửa thông tin sản phẩm
+Xóa thông tin sản phẩm
+Hiển thị danh sách sản phẩm
+Tìm kiếm thông tin sản phẩm theo tên (tìm kiếm tương đối)
+3.4. Phân hệ Mua hàng (Shopping)
+Khách hàng:
+Xem danh sách điện thoại còn hàng.
+Thêm sản phẩm vào giỏ hàng (chọn số lượng).
+Xác nhận đặt hàng (Lưu vào bảng Orders và OrderDetails).
+Hệ thống:
+Tự động giảm số lượng tồn kho (Stock) sau khi đặt hàng thành công.
+Trạng thái đơn ban đầu: PENDING (Chờ xử lý).
+3.5. Phân hệ Quản lý Đơn hàng (Admin)
+Xem danh sách đơn hàng mới.
+Cập nhật trạng thái: SHIPPING (Đang giao), DELIVERED (Đã giao), CANCELLED (Hủy đơn).
+
+IV. Yêu cầu kỹ thuật bắt buộc
+Công cụ: Java Core (OOP), JDBC kết nối MySQL.
+Kiến trúc: Phải tách lớp rõ ràng theo mô hình:
+Model: Các thực thể (Customer, Product, Order...).
+DAO (Data Access Object): Các lớp tương tác với cơ sở dữ liệu.
+Service: Xử lý logic nghiệp vụ.
+Presentation: Giao diện điều khiển (Menu Console).
+Util : Chứa các lớp tiện ích chung .
+
+V. Không gian phát triển nâng cao (Tính điểm cộng)
+Tính năng 1: Chương trình flash sale: Khách có thể mua các sản phẩm đang được giảm giá mạnh với số lượng có hạn .
+Tính năng 2: Quản lý mã giảm giá (Coupon): Admin tạo mã giảm giá % cho đơn hàng.
+Tính năng 3: Báo cáo thống kê: Xuất ra Console danh sách 5 sản phẩm bán chạy nhất tháng.
+Tính năng 4: Validation nâng cao: Kiểm tra biển số điện thoại đúng định dạng, không cho đặt hàng nếu số lượng kho = 0.
+
+VI. Tiêu chí chấm điểm
+60 điểm (Cơ bản): CRUD Sản phẩm và User chạy tốt, nộp bài đúng hạn, JDBC không lỗi.
+40 điểm (Nâng cao): Code sạch (Clean Code), xử lý Exception tốt (SQLInjection, NullPointer), có tính năng mở rộng.
