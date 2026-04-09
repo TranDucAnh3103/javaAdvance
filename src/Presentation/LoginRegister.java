@@ -1,5 +1,6 @@
 package Presentation;
 
+import Exceptions.*;
 import Models.CoreEntities.User;
 import Service.UserLoginService;
 
@@ -50,9 +51,9 @@ public class LoginRegister {
 
         System.out.println("+--------------------------------------------------+");
 
-        User user = userService.login(email, pass);
-        if (user != null) {
-            // Lưu trạng thái đăng nhập vào Session
+        try {
+            User user = userService.login(email, pass);
+            // Lưu trạng thái đăng nhập vào Session -> để getCurrentRole lấy luôn role để so sánh.
             Util.Session.setLoggedInUser(user);
 
             System.out.println("Chào mừng " + user.getFullName() + " [" + user.getRole() + "]");
@@ -66,8 +67,10 @@ public class LoginRegister {
             } else {
                 System.out.println("Vai trò người dùng không hợp lệ!");
             }
-        } else {
-            System.out.println("Email hoặc mật khẩu không đúng!");
+        } catch (InvalidInputException e) {
+            System.out.println("Lỗi đăng nhập: " + e.getMessage());
+        } catch (DatabaseException e) {
+            System.out.println("Lỗi hệ thống: " + e.getMessage());
         }
     }
 
@@ -82,8 +85,19 @@ public class LoginRegister {
         System.out.print  ("|  Email (*)            : ");
         String email = sc.nextLine().trim();
 
-        System.out.print  ("|  SĐT (* - 10 số)      : ");
-        String phone = sc.nextLine().trim();
+        String phone = "";
+        while (true) {
+            System.out.print  ("|  SĐT (* - 10 số)      : ");
+            phone = sc.nextLine().trim();
+            try {
+                // Tầng Presentation gọi Service để kiểm duyệt dữ liệu nhập
+                userService.validatePhone(phone);
+                break; // Thoát vòng lặp nếu phone hợp lệ
+            } catch (InvalidPhoneNumberException e) {
+                // Bắt Exception và hiển thị thông báo lỗi màu đỏ, sau đó yêu cầu nhập lại
+                System.err.println("Lỗi: " + e.getMessage());
+            }
+        }
 
         System.out.print  ("|  Địa chỉ              : ");
         String address = sc.nextLine().trim();
@@ -92,22 +106,6 @@ public class LoginRegister {
         String pass = sc.nextLine().trim();
 
         System.out.println("+--------------------------------------------------+");
-
-        // Validate đầu vào một lần, nếu sai sẽ báo lỗi và về menu chính luôn
-        if (fullName.isEmpty() || email.isEmpty() || phone.isEmpty() || pass.isEmpty()) {
-            System.out.println("Lỗi: Các trường có dấu (*) không được để trống!");
-            return;
-        }
-
-        if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-z]+$")) {
-            System.out.println("Lỗi: Email không hợp lệ (ví dụ: test@gmail.com).");
-            return;
-        }
-
-        if (!phone.matches("^0[0-9]{9}$")) {
-            System.out.println("Lỗi: Số điện thoại không hợp lệ (phải gồm 10 số và bắt đầu bằng số 0).");
-            return;
-        }
 
         try {
             User newUser = new User();
@@ -123,9 +121,13 @@ public class LoginRegister {
             boolean success = userService.register(newUser);
             if (success) {
                 System.out.println("Đăng ký thành công! Bạn có thể đăng nhập bằng tài khoản mới.");
-            } else {
-                System.out.println("Đăng ký thất bại. Email hoặc Số điện thoại có thể đã tồn tại, hoặc lỗi máy chủ.");
             }
+        } catch (InvalidPhoneNumberException | InvalidEmailException | InvalidInputException e) {
+            System.out.println("Lỗi đầu vào: " + e.getMessage());
+        } catch (DuplicateResourceException e) {
+            System.out.println("Lỗi đăng ký: " + e.getMessage());
+        } catch (DatabaseException e) {
+            System.out.println("Lỗi hệ thống: " + e.getMessage());
         } catch (Exception e) {
             System.out.println("Lỗi nghiêm trọng: Có lỗi xảy ra trong quá trình khởi tạo tài khoản -> " + e.getMessage());
         }

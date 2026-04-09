@@ -7,7 +7,7 @@ public class Admin {
         Scanner sc = new Scanner(System.in);
         while (true) {
             System.out.println("+--------------------------------------------------+");
-            System.out.println("|              QUẢN TRỊ VIÊN (ADMIN)              |");
+            System.out.println("|              QUẢN TRỊ VIÊN (ADMIN)               |");
             System.out.println("+--------------------------------------------------+");
             System.out.println("|  1. Quản lý danh mục                             |");
             System.out.println("|  2. Quản lý sản phẩm                             |");
@@ -15,12 +15,13 @@ public class Admin {
             System.out.println("|  4. Báo cáo thống kê                             |");
             System.out.println("|  0. Đăng xuất                                    |");
             System.out.println("+--------------------------------------------------+");
-            System.out.print  ("|  Chọn chức năng: ");
-            
+            System.out.print("|  Chọn chức năng: ");
+
             String choice = sc.nextLine();
             switch (choice) {
                 case "1":
-                    System.out.println("--> Chức năng Quản lý danh mục đang được hoàn thiện...");
+                    CategoryPresentation catUI = new CategoryPresentation();
+                    catUI.displayMenu();
                     break;
                 case "2":
                     System.out.println("--> Chức năng Quản lý sản phẩm đang được hoàn thiện...");
