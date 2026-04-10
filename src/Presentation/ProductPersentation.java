@@ -28,8 +28,9 @@ public class ProductPersentation {
             System.out.println("\n+-------------------------------------------------------------+");
             System.out.println("|                  QUẢN LÝ SẢN PHẨM (ADMIN)                   |");
             System.out.println("+-------------------------------------------------------------+");
-            System.out.println("| Lọc hiện tại: " + (currentSearchQuery == null ? "Không" : "'" + currentSearchQuery + "'") + 
-                    " | Sắp xếp: " + (currentSortBy == null ? "Mặc định (Tăng dần ID)" : currentSortBy + " " + currentSortOrder) + " |");
+            String filterStr = currentSearchQuery == null ? "Không" : ("'" + currentSearchQuery + "'");
+            String sortStr = currentSortBy == null ? "Mặc định (Tăng dần ID)" : (currentSortBy + " " + currentSortOrder);
+            System.out.printf("| Lọc: %-20s | Sắp xếp: %-22s |%n", filterStr, sortStr);
             System.out.println("+-------------------------------------------------------------+");
             System.out.println("| 1. Hiển thị danh sách đầy đủ (Phân trang)                   |");
             System.out.println("| 2. Thêm mới sản phẩm (Validate giá & số lượng)              |");
@@ -70,35 +71,51 @@ public class ProductPersentation {
     }
 
     public void displayAllProducts(Scanner sc) {
-        int limit = 5; 
-        int page = 1;
+        int limit = 5; // Số lượng sản phẩm tối đa hiển thị trên 1 trang 
+        int page = 1; // Khởi tạo biến trang hiện tại, mặc định bắt đầu ở trang số 1
 
-        while (true) {
+        while (true) { // Vòng lặp vô hạn giúp người dùng giữ nguyên trạng thái danh sách để liên tục chuyển trang
             try {
-                // Truyền query tìm kiếm vào getTotalProducts để đếm đúng số trang
-                int totalProducts = ps.getTotalProducts(currentSearchQuery);
+                // Đếm tổng số lượng sản phẩm dựa trên DB. Việc truyền tham số 'currentSearchQuery' giúp nó đếm dựa vào bộ lọc tìm kiếm hiện tại chứ không phải đếm TẤT CẢ.
+                int totalProducts = ps.getTotalProducts(currentSearchQuery, false);
+                
+                // Nếu tổng số trả về <= 0 (trong DB không có sản phẩm nào, hoặc tìm kiếm không khớp), in thông báo chặn lỗi và trở về menu trước.
                 if (totalProducts <= 0) {
                     System.out.println("=> Không tìm thấy sản phẩm nào.");
                     return;
                 }
 
+                // Tính tổng số trang bằng cách: Tổng_Sản_Phẩm chia cho Số_SP_1_Trang (limit). Toán tử Math.ceil dùng để làm tròn LÊN. (VD: 11 / 5 = 2.2 -> Lên 3 Trang)
                 int totalPages = (int) Math.ceil((double) totalProducts / limit);
+                
+                // Validate phân trang 1: Nếu người dùng (code) làm trang hiện tại bị nhỏ hơn 1 -> Ép trang hiện tại quay về đầu (1).
                 if (page < 1) page = 1;
+                // Validate phân trang 2: Nếu người dùng cố qua trang lớn hơn trang chỉ định -> Ép dừng ở lại ngay chốt chặn tổng trang (totalPages)
                 if (page > totalPages) page = totalPages;
 
+                // Tính toán tham số offset. Offset biểu thị cho 'số lượng bản ghi mà truy vấn sẽ lướt qua' trước khi bắt đầu lấy dòng dữ liệu. 
+                // Công thức: (Trang hiện tại - 1) * Số bản ghi 1 trang. Ví dụ để hiển thị Trang 2 -> (2-1)*5 = 5. Lướt qua 5 bản ghi và lấy bản ghi 6.
                 int offset = (page - 1) * limit;
 
-                // Lấy data với tham số search & sort
-                List<ProductDTO> list = ps.getAllProducts(limit, offset, currentSearchQuery, currentSortBy, currentSortOrder);
+                // Call DAO/Service lấy List dữ liệu thực sự với đủ 5 tham số: phân trang, bỏ qua bao nhiêu, tìm kiếm chữ gì, sắp xếp field nào, chiều nào
+                List<ProductDTO> list = ps.getAllProducts(limit, offset, currentSearchQuery, currentSortBy, currentSortOrder, false);
 
-                System.out.println("\n" + "=".repeat(110));
-                System.out.printf("| %-12s | %-20s | %-15s | %-10s | %-12s | %-8s |%n",
+                // ============= BẮT ĐẦU BLOCK RENDER GIAO DIỆN CONSOLE =============
+                // Vẽ một đường kẻ ngang trang trí khớp với độ dài bảng (124 ký tự)
+                System.out.println("\n" + "=".repeat(124)); 
+                
+                // In Header của cột. Kí hiệu %-X s: chuỗi hiển thị tốn X kí tự space, dấu '-' căn lề Trái.
+                System.out.printf("| %-15s | %-30s | %-20s | %-15s | %-15s | %-10s |%n",
                         "Danh mục", "Tên sản phẩm", "Cấu hình", "Màu", "Giá", "Kho");
-                System.out.println("-".repeat(110));
+                System.out.println("-".repeat(124));
 
+                // Bắt đầu vòng lặp lấy từng DTO Product bên trong cái LIST mới tải DB về
                 for (ProductDTO p : list) {
+                    // Nối RAM và ROM
                     String specs = p.getRam() + "/" + p.getRom();
-                    System.out.printf("| %-12s | %-20s | %-15s | %-10s | %-12.2f | %-8d |%n",
+                    
+                    // Khoảng cách được bung rộng ra để phòng trường hợp chuỗi tên Sản phẩm hoặc Danh mục dài.
+                    System.out.printf("| %-15s | %-30s | %-20s | %-15s | %-15.2f | %-10d |%n",
                             p.getCategoryName(),
                             p.getProductName(),
                             specs,
@@ -106,35 +123,49 @@ public class ProductPersentation {
                             p.getPrice(),
                             p.getStock());
                 }
-                System.out.println("=".repeat(110));
+                
+                System.out.println("=".repeat(124));
+                
+                // In ra thông tin Footer, thông báo vị trí đứng (VD: Trang 1 / 3 (Tổng: 10 sản phẩm))
                 System.out.println("Trang " + page + " / " + totalPages + " (Tổng: " + totalProducts + " sản phẩm)");
+                // In hướng dẫn bấm lệnh
                 System.out.println("Điều hướng: [n] Trang tiếp - [p] Trang trước - [số trang] Đi đến trang cụ thể - [0] Thoát danh sách");
                 System.out.print("=> Lựa chọn: ");
 
+                // ============= BLOCK XỬ LÝ ĐIỀU HƯỚNG TỪ INPUT =============
+                // Nhận đầu vào (Trim xóa khoẳng trắng bị nhập lầm dư thừa) và (ToLowerCase chuyển hết qua kí tự viết Thường (để P/N/n/p đều bắt được))
                 String cmd = sc.nextLine().trim().toLowerCase();
-                if (cmd.equals("0")) {
+                
+                if (cmd.equals("0")) { // Thoát khỏi Vòng Lặp Vô Hạn bên trên để trở về Menu Admin
                     break;
-                } else if (cmd.equals("n")) {
-                    if (page < totalPages) page++;
-                    else System.out.println("=> Đã ở trang cuối cùng!");
-                } else if (cmd.equals("p")) {
-                    if (page > 1) page--;
+                } else if (cmd.equals("n")) { // Lệnh n (Next): Chuyển trang tiếp
+                    // Chỉ cho tăng +1 nếu điều kiện Trang Mới còn nhỏ hơn Tổng Trang thiết lập
+                    if (page < totalPages) page++; 
+                    else System.out.println("=> Đã ở trang cuối cùng!"); 
+                } else if (cmd.equals("p")) { // Lệnh p (Previous): Lùi 1 trang
+                    // Chỉ cho lùi -1 khi Trang lùi về vẫn không bị văng số Âm. (Giới hạn của lùi là bằng 1)
+                    if (page > 1) page--; 
                     else System.out.println("=> Đã ở trang đầu tiên!");
-                } else {
+                } else { 
+                    // Trường hợp người dùng không gõ p hay n hay 0, mà họ gõ đại 1 số Trang. Vd mún qua Trang "3" luôn. (Hoặc cố tình gõ kí tự nhảm)
                     try {
-                        int pStr = Integer.parseInt(cmd);
-                        if (pStr >= 1 && pStr <= totalPages) {
-                            page = pStr;
+                        // Thử ép kiểu giá trị người dùng nhập vào -> Biến kiểu Số Nguyên
+                        int pStr = Integer.parseInt(cmd); 
+                        // Nếu Ép Kiểu thành công và Lớn hơn mức Tối Thiểu (1), Nhỏ hơn mức Tối Đa (Max_Page)
+                        if (pStr >= 1 && pStr <= totalPages) { 
+                            page = pStr; // Gán lại Trang Cứng thành công -> Next Vòng Lặp -> Render lại Data Trang đó
                         } else {
-                            System.out.println("=> Trang nhập vào không hợp lệ!");
+                            System.out.println("=> Trang nhập vào không hợp lệ!"); // Báo lỗi Out of Bounds Array (Ngoài tầm đếm)
                         }
                     } catch (NumberFormatException e) {
-                        System.out.println("=> Lệnh điều hướng không hợp lệ!");
+                        // Bắt lỗi Nếu người ta gõ chữ Text chèn vào thì parseInt sẽ đâm Lỗi Exception (Fail)
+                        System.out.println("=> Lệnh điều hướng không hợp lệ!"); 
                     }
                 }
             } catch (DatabaseException e) {
+                // Bắt lỗi nếu DatabaseException từ DAO/Service văng lên (ví dụ Rớt mạng DB)
                 System.out.println("Lỗi hệ thống: " + e.getMessage());
-                break;
+                break; // Hủy Table, văng màn
             }
         }
     }

@@ -30,7 +30,7 @@ public class LoginRegister {
                     handleRegister(sc);
                     break;
                 case "0":
-                    System.out.println("Cảm ơn bạn đã sử dụng!");
+//                    System.out.println("Cảm ơn bạn đã sử dụng!");
                     return;
                 default:
                     System.out.println("Lựa chọn không hợp lệ. Vui lòng chọn lại!");

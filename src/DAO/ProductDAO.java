@@ -12,13 +12,14 @@ public interface ProductDAO {
      * @param searchQuery Từ khóa tìm kiếm (null nếu không tìm kiếm)
      * @param sortBy Cột cần sắp xếp (ví dụ: "price")
      * @param sortOrder Hướng sắp xếp ("ASC" hoặc "DESC")
+     * @param inStockOnly True nếu chỉ muốn hiển thị hàng còn tồn kho (Dành cho Customer)
      */
-    List<ProductDTO> getAllProducts(int limit, int offset, String searchQuery, String sortBy, String sortOrder) throws Exception;
+    List<ProductDTO> getAllProducts(int limit, int offset, String searchQuery, String sortBy, String sortOrder, boolean inStockOnly) throws Exception;
 
     /**
      * Lấy tổng số lượng sản phẩm để tính total pages.
      */
-    int getTotalProducts(String searchQuery) throws Exception;
+    int getTotalProducts(String searchQuery, boolean inStockOnly) throws Exception;
 
     /**
      * Chèn Product và Variant trong cùng 1 transaction (Atomic).

@@ -1,5 +1,6 @@
 package Util;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import org.apache.tomcat.jdbc.pool.DataSource;
 import org.apache.tomcat.jdbc.pool.PoolProperties;
 
@@ -14,11 +15,22 @@ public class ConnectDB {
     static {
         PoolProperties p = new PoolProperties();
 
-        // Thông tin kết nối database
-        p.setUrl("jdbc:mysql://localhost:3306/project_db");
-        p.setDriverClassName("com.mysql.cj.jdbc.Driver");
-        p.setUsername("root");
-        p.setPassword("310306");
+        // Sử dụng Dotenv để đọc config từ src/Util/.env
+        Dotenv dotenv = Dotenv.configure()
+                .directory("src/Util")
+                .ignoreIfMissing()
+                .load();
+
+        // 2 Lấy giá trị từ file .env
+        String url = dotenv.get("DB_URL", "jdbc:mysql://localhost:3306/project_db");
+        String user = dotenv.get("DB_USERNAME", "root");
+        String pass = dotenv.get("DB_PASSWORD", "310306");
+        String driver = dotenv.get("DB_DRIVER", "com.mysql.cj.jdbc.Driver");
+
+        p.setUrl(url);
+        p.setDriverClassName(driver);
+        p.setUsername(user);
+        p.setPassword(pass);
 
         // CẤU HÌNH CONNECTION POOL
 

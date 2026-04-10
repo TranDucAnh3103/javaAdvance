@@ -12,13 +12,14 @@ import java.util.List;
 public interface ProductService {
     /**
      * Lấy danh sách sản phẩm với phân trang, search và sort
+     * @param inStockOnly True: dành cho Khách hàng (Chỉ lấy tồn kho > 0). False: dành cho Admin (Lấy tất cả).
      */
-    List<ProductDTO> getAllProducts(int limit, int offset, String searchQuery, String sortBy, String sortOrder) throws DatabaseException;
+    List<ProductDTO> getAllProducts(int limit, int offset, String searchQuery, String sortBy, String sortOrder, boolean inStockOnly) throws DatabaseException;
 
     /**
-     * Lấy tổng sản phẩm thỏa mãn điều kiện search
+     * Lấy tổng sản phẩm thỏa mãn điều kiện search và inStock
      */
-    int getTotalProducts(String searchQuery) throws DatabaseException;
+    int getTotalProducts(String searchQuery, boolean inStockOnly) throws DatabaseException;
 
     /**
      * Thêm sản phẩm mới với validate

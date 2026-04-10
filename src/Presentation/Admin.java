@@ -24,7 +24,8 @@ public class Admin {
                     catUI.displayMenu();
                     break;
                 case "2":
-                    System.out.println("--> Chức năng Quản lý sản phẩm đang được hoàn thiện...");
+                    ProductPersentation proUI = new ProductPersentation();
+                    proUI.displayProductMenu();
                     break;
                 case "3":
                     System.out.println("--> Chức năng Quản lý đơn hàng đang được hoàn thiện...");

@@ -21,18 +21,18 @@ public class ProductServiceImpl implements ProductService {
     private ProductDAO prodao = new ProductDAOImpl();
 
     @Override
-    public List<ProductDTO> getAllProducts(int limit, int offset, String searchQuery, String sortBy, String sortOrder) throws DatabaseException {
+    public List<ProductDTO> getAllProducts(int limit, int offset, String searchQuery, String sortBy, String sortOrder, boolean inStockOnly) throws DatabaseException {
         try {
-            return prodao.getAllProducts(limit, offset, searchQuery, sortBy, sortOrder);
+            return prodao.getAllProducts(limit, offset, searchQuery, sortBy, sortOrder, inStockOnly);
         } catch (Exception e) {
             throw new DatabaseException("Lỗi khi lấy danh sách sản phẩm: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public int getTotalProducts(String searchQuery) throws DatabaseException {
+    public int getTotalProducts(String searchQuery, boolean inStockOnly) throws DatabaseException {
         try {
-            return prodao.getTotalProducts(searchQuery);
+            return prodao.getTotalProducts(searchQuery, inStockOnly);
         } catch (Exception e) {
             throw new DatabaseException("Lỗi khi lấy tổng số sản phẩm: " + e.getMessage(), e);
         }

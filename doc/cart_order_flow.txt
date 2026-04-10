@@ -1,0 +1,56 @@
+======================================================================
+ TÀI LIỆU LUỒNG HOẠT ĐỘNG: GIỎ HÀNG - THANH TOÁN - KHO ẢO BỘ NHỚ (RAM)
+======================================================================
+
+1. KHÁI NIỆM CƠ BẢN
+----------------------------------------------------------------------
+A. Giỏ hàng lưu trên RAM (In-Memory Cart):
+Hệ thống KHÔNG tạo bảng `carts` trong cơ sở dữ liệu MySQL. Mọi thao tác Add, Sửa, Xóa mặt hàng của Customer đều lưu trong 1 biến Danh sách (`List<CartItem> cart`) tại lớp `Customer.java`.
+=> Ưu điểm: Hiệu năng cực cao, nhấp là thêm, không làm tắc nghẽn Database bắt MySQL ghi đọc liên tục. Nếu khách thoát ngang, giỏ tự hủy sạch sẽ, không sinh ra rác dữ liệu ở DB.
+
+B. Tồn kho ảo (Virtual Stock):
+Sẽ ra sao nếu 1 máy có Tồn thật là 5, khách đã add 2 vào thẻ, nhưng màn hình vẫn in ra là Kho 5 máy? Để tránh Khách hàng bị ảo tưởng rồi Add tiếp thành 7 máy > gây lỗi. Chúng ta áp dụng khái niệm MAPPING KHO ẢO.
+=> Kho in ra màn hình = [TỒN KHO THẬT KÉO TỪ DB] - [SỐ MÁY ĐANG nằm TRONG GIỎ RAM].
+
+C. Database Transaction (Giao dịch Nguyên thủy):
+Tính năng của MySQL JDBC (`con.setAutoCommit(false)`), giúp gộp nhiều dòng lệnh Insert/Update lại và THỰC THI CÙNG LÚC. Chỉ kích hoạt ngay cái giây phút người dùng ấn Mua Hàng đút thẻ.
+
+
+2. LUỒNG THỰC THI CHI TIẾT (WORKFLOW)
+----------------------------------------------------------------------
+
+[BƯỚC 1]: HIỂN THỊ DANH SÁCH MUA SẮM
+- Logic: Java chạy truy vấn `SELECT` kéo toàn bộ Sản phẩm (có stock > 0) lên trước.
+- Thuật toán ảo hóa: Chạy vòng lặp kiểm tra chéo với cái `cart` (RAM). Thấy trùng `Variant_ID` thì ngầm lấy `stock` trừ đi.
+- Kết quả: Console in ra cái "Tồn Kho đã trừ hao". Khách thấy chính xác số máy khả dụng còn được quyền bốc tiếp.
+
+[BƯỚC 2]: KHÁCH HÀNG THÊM (ADD) VÀO GIỎ
+- Khách điền Số lượng cần mua.
+- Logic chặn lỗi: Java thử cộng [Số lượng khách định mua thêm] + [Số lượng đang ôm sẵn trong giỏ RAM nếu có].
+- Nếu ra kết quả [Tổng mong đợi] > [Tồn kho thật từ DB] -> Báo LỖI KHO ngay lập tức và CẤM add.
+- Nếu hợp lệ -> Đút thông tin DTO `CartItem` vào RAM.
+
+[BƯỚC 3]: KHÁCH SỬA SỐ LƯỢNG / XÓA SẢN PHẨM TRONG GIỎ
+- Khách tương tác bằng Mã SP (Variant_ID) thao tác.
+- Chỉ đơn giản là `cart.remove()` hoặc `cartItem.setQuantity()`.
+- Số Kho ảo lúc này tự động "hoàn nguyên" (Phục hồi). Không liên quan một xíu rác nào tới CSDL thật.
+
+[BƯỚC 4]: XÁC NHẬN THANH TOÁN (CHECKOUT) - FINAL BOSS
+- Đây là khoảnh khắc duy nhất CSDL bắt đầu can thiệp thao tác Update dữ liệu thực tế.
+- Khách chốt địa chỉ và chọn Confirm [Y]. Code quăng mảng `cart` sang `OrderDAO`.
+- Các việc xảy ra theo tốc độ ánh sáng tại lớp `OrderDAO`:
+  + Giam kết nối SQL bằng lệnh: `con.setAutoCommit(false);`
+  + (1) `INSERT INTO orders`: Tạo thân hóa đơn -> Lấy khóa `Order_ID`.
+  + (2) Vòng lặp bắn súng liên thanh `UPDATE`:  Lấy hàng tồn kho thật trừ đi (`stock = stock - ?`) VỚI Điều kiện bắt buộc `WHERE stock >= [số lượng mua]`. 
+     => Đây là lưới bảo mật chống (Over-selling): Giả sử ông A và B cùng lúc Add chung 1 máy cuối cùng. B bấm Checkout trước 1 giây nên B ăn cái lệnh Update đó. A ngậm ngùi bấm Checkout sau, MySQL xét điều kiện WHERE thấy kho đã rớt xuống 0 máy => Câu lệnh Update trả về 0 row affected => Quăng Exception ngay!
+  + (3) `INSERT INTO order_details`: Đắp chi tiết vào thân hóa đơn.
+  + Đích đến: Lệnh `.commit();`. Mọi thứ an tọa. Trả lệnh báo "Giao dịch Thành Công". Code vòng ra ngoài búng lệnh `cart.clear()` bay màu giỏ hàng.
+  + Nếu giữa 3 điều trên có 1 cái lỗi (ví dụ Lưới Over-selling phát hiện sai phạm) -> Chạy ngay về Catch và gọi `.rollback()`. Toàn bộ (1) (2) (3) bị lùi lại, CSDL MySQL không bị sứt mẻ 1 dòng nào!
+
+
+======================================================================
+ TỔNG KẾT:
+ Bằng mô hình Kết hợp "Giỏ Hàng tĩnh RAM" + "Transaction JDBC", hệ thống 
+ đảm tối đa tốc độ khung hình (Do RAM tự gánh), nhưng CSDL vẫn an toàn 
+ tuyệt đối trong hoàn cảnh Concurrency (Sử dụng đồng thời).
+======================================================================

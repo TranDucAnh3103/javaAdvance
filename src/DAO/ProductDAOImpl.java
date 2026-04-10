@@ -24,7 +24,7 @@ public class ProductDAOImpl implements ProductDAO {
      *   ta chỉ bắt DB trả đúng số bản ghi với LIMIT/OFFSET -> O(K) Space Complexity (K là limit).
      */
     @Override
-    public List<ProductDTO> getAllProducts(int limit, int offset, String searchQuery, String sortBy, String sortOrder) throws Exception {
+    public List<ProductDTO> getAllProducts(int limit, int offset, String searchQuery, String sortBy, String sortOrder, boolean inStockOnly) throws Exception {
         List<ProductDTO> list = new ArrayList<>();
 
         // Sử dụng StringBuilder để thoải mái ghép chuỗi SQL động (Dynamic SQL).
@@ -51,6 +51,11 @@ public class ProductDAOImpl implements ProductDAO {
         // [EDGE CASE]: Nếu người dùng có nhập từ khóa, ta ghép toán tử LIKE vào.
         if (searchQuery != null && !searchQuery.trim().isEmpty()) {
             sql.append(" AND p.name LIKE ? ");
+        }
+        
+        // Cờ Lọc Kho Hàng cho Khách (Chỉ hiển thị đồ có lượng tồn kho > 0)
+        if (inStockOnly) {
+            sql.append(" AND pv.stock > 0 ");
         }
 
         // Kiểm tra chiều sắp xếp động
@@ -98,7 +103,7 @@ public class ProductDAOImpl implements ProductDAO {
     }
 
     @Override
-    public int getTotalProducts(String searchQuery) throws Exception {
+    public int getTotalProducts(String searchQuery, boolean inStockOnly) throws Exception {
         StringBuilder sql = new StringBuilder("""
             SELECT COUNT(*) AS total
             FROM categories c
@@ -111,6 +116,10 @@ public class ProductDAOImpl implements ProductDAO {
 
         if (searchQuery != null && !searchQuery.trim().isEmpty()) {
             sql.append(" AND p.name LIKE ? ");
+        }
+        
+        if (inStockOnly) {
+            sql.append(" AND pv.stock > 0 ");
         }
 
         try (Connection con = ConnectDB.getConnection();
