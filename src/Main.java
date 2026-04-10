@@ -29,6 +29,7 @@ void main() {
     }
 }
 
+
 // Phương thức để vẽ Logo ASCII nghệ thuật ra Console
 private void printSplashScreen() {
     // Tạo 1 biến chứa 40 khoảng trắng (bạn có thể tăng giảm số 40 này để căn chỉnh lề trái theo ý muốn)

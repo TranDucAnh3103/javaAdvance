@@ -208,11 +208,11 @@ public class Customer {
                 }
             }
             
-            // XÍ NGẦU KHO HÀNG ẢO (VIRTUAL STOCK MAPPING)
+            // (VIRTUAL STOCK MAPPING)
             // Tồn kho ở màn hình UI lúc này (selectedDTO.getStock()) ĐÃ LÀ TỒN KHO THẬT TRỪ ĐI HÀNG ĐANG CÓ TRONG GIỎ (RAM).
             // Do đó kho ảo còn bao nhiêu thì chỉ được nạp CHỨA tối đa bấy nhiêu.
             if (qty > selectedDTO.getStock()) {
-                System.err.println("=> [LỖI KHO] Số tồn kho khả dụng hiện chỉ còn " + selectedDTO.getStock() + " máy (Đã trừ hao số máy đang có trong Giỏ)! Việc nhập thêm " + qty + " máy sẽ làm gãy chuỗi.");
+                System.err.println("=> [LỖI KHO] Số tồn kho khả dụng hiện chỉ còn " + selectedDTO.getStock() + " máy (Đã trừ hao số máy đang có trong Giỏ)! Việc nhập thêm " + qty + " máy lỗi.");
                 return;
             }
 
@@ -231,7 +231,7 @@ public class Customer {
                         qty
                 );
                 cart.add(newItem);
-                System.out.println("=> Đã thêm [" + selectedDTO.getProductName() + "] vào Giỏ hàng RAM! (Tồn kho hiển thị sẽ lập tức trừ đi ảo)");
+                System.out.println("=> Đã thêm [" + selectedDTO.getProductName() + "] vào Giỏ hàng ! ");
             }
 
         } catch (NumberFormatException e) {
@@ -239,6 +239,8 @@ public class Customer {
         }
     }
 
+
+    //case 3
     private void manageCartAndCheckout(Scanner sc) {
         while (true) {
             if (cart.isEmpty()) {
@@ -263,12 +265,12 @@ public class Customer {
             System.out.printf(" TỔNG DANH MỤC: %-5d  | TỔNG TIỀN THANH TOÁN GÓI GỌN: %.2f VNĐ%n", cart.size(), cartTotal);
             
             System.out.println("\n[CÁC LỆNH TƯƠNG TÁC GIỎ HÀNG]");
-            System.out.println("  1. Tới Quầy Thanh Toán (Checkout - Lúc này SQL Transaction mới gọi lệnh lấy máu kho thực sự)");
+            System.out.println("  1. Tới Quầy Thanh Toán (Checkout)");
             System.out.println("  2. Sửa số lượng của mặt hàng (Nhập mã)");
             System.out.println("  3. XÓA mặt hàng khỏi giỏ (Nhập mã)");
-            System.out.println("  4. HỦY TOÀN BỘ giỏ hàng (Khôi phục kho ảo về như cũ)");
+            System.out.println("  4. HỦY TOÀN BỘ giỏ hàng (xóa tất cả sản phẩm giỏ hàng)");
             System.out.println("  0. Quay lại Menu chính (Cất giỏ đó để mua tiếp)");
-            System.out.print(" => Xin chọn số: ");
+            System.out.print(" => Xin chọn: ");
             
             String cText = sc.nextLine();
             switch (cText) {
@@ -283,7 +285,7 @@ public class Customer {
                     break;
                 case "4":
                     cart.clear();
-                    System.out.println("=> Đã clear hoàn toàn giỏ hàng, số tồn kho ảo đã được phóng thích!");
+                    System.out.println("=> Đã clear hoàn toàn giỏ hàng !");
                     return;
                 case "0":
                     return;
@@ -314,18 +316,18 @@ public class Customer {
             
             if (newQty <= 0) {
                 cart.remove(target);
-                System.out.println("=> Do gõ số lượng = 0, món hàng bị rớt khỏi giỏ luôn! Kho ảo đã phục hồi bấy nhiêu chiếc.");
+                System.out.println("=> Do gõ số lượng = 0, món hàng bị rớt khỏi giỏ luôn! ");
             } else {
                 target.setQuantity(newQty);
-                System.out.println("=> Đã hô biến thành " + newQty + " máy trong giỏ RAM!");
+                System.out.println("=> Đã thêm " + newQty + " máy trong giỏ hàng!");
             }
         } catch (NumberFormatException e) {
-            System.err.println("=> Mã SP hoắc Số Lượng nhập vào dỏm!");
+            System.err.println("=> Mã SP hoắc Số Lượng nhập vào lỗi!");
         }
     }
 
     private void removeCartItem(Scanner sc) {
-        System.out.print("=> Nhập Mã SP (Variant ID) mục muốn đá khỏi giỏ: ");
+        System.out.print("=> Nhập Mã SP (Variant ID) mục muốn xóa khỏi giỏ: ");
         try {
             int vId = Integer.parseInt(sc.nextLine());
             CartItem target = null;
@@ -337,7 +339,7 @@ public class Customer {
             }
             if (target != null) {
                 cart.remove(target);
-                System.out.println("=> Đã ném [" + target.getProductName() + "] ra đường. Kho ảo được phục hồi.");
+                System.out.println("=> Đã xóa [" + target.getProductName() + "] ra khỏi giỏ hàng.");
             } else {
                 System.err.println("=> Tìm không ra mã SP trên trong Giỏ.");
             }
@@ -369,42 +371,42 @@ public class Customer {
             }
         }
 
-        System.out.print("=> Bấm chữ [Y] để chốt đơn, bất kì phím nào khác để HỦY KÈO: ");
+        System.out.print("=> Bấm chữ [Y] để chốt đơn, bất kì phím nào khác để HỦY: ");
         String finalOk = sc.nextLine().trim();
 
         if (finalOk.equalsIgnoreCase("Y")) {
-            System.out.println("\n...Hệ thống đang kết nối Ngân Hàng và Nhà Kho...");
+            System.out.println("\n...Hệ thống đang xử lý...");
             try {
-                // Bốc nguyên cái Giỏ nhét vào OrderService
+                //  Giỏ hàng nhét vào OrderService
                 boolean success = os.checkout(u.getId(), shippingAddr, cart);
                 if (success) {
-                    System.out.println("\n[XUẤT BILL THÀNH CÔNG] Tiền đã trao cháo đã múc, xin cám ơn Quý Khách!");
-                    cart.clear(); // Xóa RAM giỏ hàng liền
+                    System.out.println("\n[XUẤT BILL THÀNH CÔNG] Tiền đã trao - cháo đã múc, xin cám ơn Quý Khách!");
+                    cart.clear(); // Xóa RAM giỏ hàng
                 }
             } catch (InvalidInputException e) {
                 System.err.println("\n[LỖI GIAO DỊCH] " + e.getMessage());
             } catch (DatabaseException e) {
-                System.err.println("\n[HỆ THỐNG GÃY] " + e.getMessage());
+                System.err.println("\n[HỆ THỐNG LỖI] " + e.getMessage());
             }
         } else {
-            System.out.println("=> Đã rút lui khỏi Quầy thanh toán.");
+            System.out.println("=> Đã thoát khỏi Quầy thanh toán.");
         }
     }
 
     private void viewOrderHistory() {
-        System.out.println("\n--- VẾT TÍCH CHI TIÊU CỦA BẠN (Lịch sử thanh toán) ---");
+        System.out.println("\n--- LỊCH SỬ THANH TOÁN ---");
         try {
             User u = Session.getLoggedInUser();
             List<Order> orders = os.getOrderHistory(u.getId());
             
             if (orders.isEmpty()) {
-                System.out.println("=> Hồ sơ thê thảm, bạn chưa từng mua thứ gì.");
+                System.out.println("=> Bạn chưa từng mua thứ gì.");
                 return;
             }
 
             System.out.println("=".repeat(120));
             System.out.printf("| %-10s | %-20s | %-15s | %-15s | %-40s |%n", 
-                    "Mã ĐH", "Ngày Mua", "Trạng Thái", "Tổng Bill (VNĐ)", "Điểm Tập Kết (Địa chỉ)");
+                    "Mã ĐH", "Ngày Mua", "Trạng Thái", "Tổng Bill (VNĐ)", "Địa chỉ");
             System.out.println("-".repeat(120));
             
             for (Order o : orders) {
@@ -416,10 +418,10 @@ public class Customer {
                         o.getShippingAddress());
             }
             System.out.println("=".repeat(120));
-            System.out.println("Lưu ý nhỏ: Cần hỗ trợ Hủy đơn hàng xin liên hệ Hotline. Hệ thống tự động đang bảo trì sửa nốt chức năng đó.");
+            System.out.println("Lưu ý nhỏ: Cần hỗ trợ Hủy đơn hàng xin liên hệ Hotline (0.981.247.641). ");
 
         } catch (DatabaseException e) {
-            System.err.println("=> SQL rớt nhịp đập phanh: " + e.getMessage());
+            System.err.println("=> lỗi kết nối SQL : " + e.getMessage());
         }
     }
 }
