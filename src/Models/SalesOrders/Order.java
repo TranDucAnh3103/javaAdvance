@@ -14,6 +14,10 @@ public class Order {
     private String shippingAddress;
     private Timestamp createdAt;
 
+    // Field phụ trợ: Chỉ dùng khi Admin xem danh sách đơn hàng (JOIN bảng users lấy tên).
+    // Không nằm trong bảng orders, không INSERT/UPDATE — thuần hiển thị.
+    private String customerName;
+
     public Order() {}
 
     public Order(Integer couponId, Timestamp createdAt, int id, String shippingAddress, OrderStatus status, BigDecimal totalAmount, int userId) {
@@ -82,12 +86,21 @@ public class Order {
         this.userId = userId;
     }
 
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
+
     @Override
     public String toString() {
         return "Order{" +
                 "couponId=" + couponId +
                 ", id=" + id +
                 ", userId=" + userId +
+                ", customerName='" + customerName + '\'' +
                 ", totalAmount=" + totalAmount +
                 ", status=" + status +
                 ", shippingAddress='" + shippingAddress + '\'' +

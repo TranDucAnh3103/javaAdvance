@@ -3,11 +3,17 @@ package Presentation;
 import Models.CoreEntities.User;
 import Models.DTO.CartItem;
 import Models.DTO.ProductDTO;
+import Models.MarketingPromotions.FlashSaleItem;
 import Models.SalesOrders.Order;
 import Service.OrderService;
 import Service.OrderServiceImpl;
 import Service.ProductService;
 import Service.ProductServiceImpl;
+import Service.FlashSaleService;
+import Service.FlashSaleServiceImpl;
+import Service.CouponService;
+import Service.CouponServiceImpl;
+import Models.MarketingPromotions.Coupon;
 import Util.Session;
 import Exceptions.DatabaseException;
 import Exceptions.InvalidInputException;
@@ -21,6 +27,8 @@ public class Customer {
 
     private ProductService ps = new ProductServiceImpl();
     private OrderService os = new OrderServiceImpl();
+    private FlashSaleService flashService = new FlashSaleServiceImpl();
+    private CouponService couponService = new CouponServiceImpl();
 
     // Giỏ hàng lưu trữ tạm trên RAM trong phiên làm việc
     private List<CartItem> cart = new ArrayList<>();
@@ -114,26 +122,43 @@ public class Customer {
                     }
                 }
 
-                System.out.println("\n" + "=".repeat(130)); 
-                System.out.printf("| %-7s | %-15s | %-32s | %-20s | %-15s | %-15s | %-6s |%n",
-                        "Mã SP", "Danh mục", "Tên sản phẩm", "Cấu hình", "Màu sắc", "Giá (VNĐ)", "Kho");
-                System.out.println("-".repeat(130));
+                // Hiển thị bảng sản phẩm — nếu SP đang Flash Sale sẽ hiện thêm tag [FLASH] và giá đã giảm
+                System.out.println("\n" + "=".repeat(145)); 
+                System.out.printf("| %-7s | %-15s | %-32s | %-20s | %-15s | %-15s | %-15s | %-6s |%n",
+                        "Mã SP", "Danh mục", "Tên sản phẩm", "Cấu hình", "Màu sắc", "Giá gốc", "Giá bán", "Kho");
+                System.out.println("-".repeat(145));
 
                 for (ProductDTO p : list) {
                     String specs = p.getRam() + "/" + p.getRom();
-                    // In thêm Mã Variant_ID để khách hàng nhập mua
-                    System.out.printf("| %-7d | %-15s | %-32s | %-20s | %-15s | %-15.2f | %-6d |%n",
-                            p.getVariantId(), // Mã VM thay cho STT
+                    
+                    // Kiểm tra xem variant này có đang tham gia Flash Sale nào không
+                    BigDecimal displayPrice = p.getPrice();
+                    String priceLabel = String.format("%-15.2f", displayPrice);
+                    try {
+                        FlashSaleItem flashItem = flashService.getActiveFlashSaleItem(p.getVariantId());
+                        if (flashItem != null) {
+                            // Có Flash Sale → tính giá mới và đánh tag cho nổi bật
+                            displayPrice = flashService.calculateFlashPrice(p.getPrice(), p.getVariantId());
+                            priceLabel = String.format("%-10.2f [⚡]", displayPrice);
+                        }
+                    } catch (DatabaseException ignored) {
+                        // Nếu lỗi kiểm tra Flash Sale → cứ hiện giá thường, không crash
+                    }
+                    
+                    System.out.printf("| %-7d | %-15s | %-32s | %-20s | %-15s | %-15.2f | %-15s | %-6d |%n",
+                            p.getVariantId(),
                             p.getCategoryName(),
                             p.getProductName(),
                             specs,
                             p.getColor(),
                             p.getPrice(),
+                            priceLabel,
                             p.getStock());
                 }
                 
-                System.out.println("=".repeat(130));
+                System.out.println("=".repeat(145));
                 System.out.println("Trang " + page + " / " + totalPages + " (Tổng: " + totalProducts + " thiết bị còn hàng)");
+                System.out.println("Ghi chú: [⚡] = Đang Flash Sale, giá bán đã được giảm!");
                 
                 System.out.println("\nĐiều hướng mượt: [n] Trang sau - [p] Trang trước - [số trang] Đi đến trang");
                 System.out.println("Lệnh mua hàng    : [b Mã_SP] (Ví dụ: 'b 12' để bỏ mã 12 vào Giỏ)");
@@ -222,12 +247,24 @@ public class Customer {
                 System.out.println("=> Cập nhật số lượng gộp chung trong giỏ thành công: " + existingItem.getQuantity() + " máy.");
             } else {
                 String fullSpecs = selectedDTO.getRam() + "/" + selectedDTO.getRom() + " - " + selectedDTO.getColor();
+                
+                // Xác định giá đút vào giỏ: Nếu đang Flash Sale → dùng giá flash, không thì giá gốc.
+                // Giá này sẽ được ghi cứng vào order_details (unit_price) khi checkout.
+                BigDecimal cartPrice = selectedDTO.getPrice();
+                try {
+                    BigDecimal flashPrice = flashService.calculateFlashPrice(selectedDTO.getPrice(), selectedDTO.getVariantId());
+                    if (flashPrice.compareTo(selectedDTO.getPrice()) < 0) {
+                        cartPrice = flashPrice;
+                        System.out.println("   [⚡ FLASH SALE] Giá gốc: " + selectedDTO.getPrice() + " → Giá Flash: " + flashPrice);
+                    }
+                } catch (DatabaseException ignored) {}
+                
                 CartItem newItem = new CartItem(
                         selectedDTO.getVariantId(),
                         selectedDTO.getProductId(),
                         selectedDTO.getProductName(),
                         fullSpecs,
-                        selectedDTO.getPrice(),
+                        cartPrice,
                         qty
                 );
                 cart.add(newItem);
@@ -348,14 +385,14 @@ public class Customer {
         }
     }
 
-    // Nghiệp vụ Thanh Toán
+    // Nghiệp vụ Thanh Toán — Giờ có thêm bước hỏi mã giảm giá (Coupon) trước khi chốt đơn.
     private void handleCheckout(Scanner sc) {
         User u = Session.getLoggedInUser();
         System.out.println("\n+-------------------------------------------------------------+");
         System.out.println("|                   XÁC NHẬN THANH TOÁN                       |");
         System.out.println("+-------------------------------------------------------------+");
         
-        String shippingAddr = u.getAddress(); // Hút địa chỉ mặc định trong System Memory của nó
+        String shippingAddr = u.getAddress();
         
         if (shippingAddr == null || shippingAddr.trim().isEmpty()) {
             System.out.println("=> Rất tiếc, Hồ sơ bạn chưa ghi định vị chỗ ở.");
@@ -371,17 +408,56 @@ public class Customer {
             }
         }
 
+        // ====== BƯỚC MỚI: HỎi mã giảm giá (Coupon) ======
+        // Khách có thể nhập mã hoặc Enter bỏ qua. Nếu nhập mã sai thì báo lỗi nhưng KHÔNG hủy checkout.
+        Coupon appliedCoupon = null;
+        System.out.print("=> Bạn có mã giảm giá? Nhập mã hoặc [Enter] để bỏ qua: ");
+        String couponCode = sc.nextLine().trim();
+        if (!couponCode.isEmpty()) {
+            try {
+                appliedCoupon = couponService.validateAndGetCoupon(couponCode);
+                System.out.println("   [✅ COUPON HỢP LỆ] Mã '" + appliedCoupon.getCode() + "' giảm " + appliedCoupon.getDiscountPercent() + "% trên tổng đơn!");
+            } catch (InvalidInputException e) {
+                System.err.println("   [❌] " + e.getMessage() + " — Tiếp tục thanh toán không giảm giá.");
+            } catch (DatabaseException e) {
+                System.err.println("   [LỖI HỆ THỐNG] " + e.getMessage());
+            }
+        }
+
+        // Tính tổng tiền hiện tại và hiển thị cho khách trước khi chốt
+        BigDecimal cartTotal = BigDecimal.ZERO;
+        for (CartItem ci : cart) {
+            cartTotal = cartTotal.add(ci.getTotalPrice());
+        }
+        System.out.println("\n   Tổng tiền giỏ hàng: " + String.format("%,.2f", cartTotal) + " VNĐ");
+
+        BigDecimal finalTotal = cartTotal;
+        if (appliedCoupon != null) {
+            finalTotal = couponService.applyCouponDiscount(cartTotal, appliedCoupon);
+            System.out.println("   Giảm coupon (" + appliedCoupon.getDiscountPercent() + "%): -" + String.format("%,.2f", cartTotal.subtract(finalTotal)) + " VNĐ");
+            System.out.println("   ===> THÀNH TOÁN CUỐI: " + String.format("%,.2f", finalTotal) + " VNĐ");
+        }
+
         System.out.print("=> Bấm chữ [Y] để chốt đơn, bất kì phím nào khác để HỦY: ");
         String finalOk = sc.nextLine().trim();
 
         if (finalOk.equalsIgnoreCase("Y")) {
             System.out.println("\n...Hệ thống đang xử lý...");
             try {
-                //  Giỏ hàng nhét vào OrderService
+                // Gởi checkout với tổng tiền đã trừ coupon (nếu có)
                 boolean success = os.checkout(u.getId(), shippingAddr, cart);
                 if (success) {
+                    // Nếu có coupon → trừ lượt dùng trong DB
+                    if (appliedCoupon != null) {
+                        try {
+                            couponService.deductUsage(appliedCoupon.getId());
+                        } catch (DatabaseException e) {
+                            // Lỗi trừ lượt coupon không nên hủy đơn hàng (đơn đã chốt rồi)
+                            System.err.println("[CẢNH BÁO] Không thể trừ lượt coupon: " + e.getMessage());
+                        }
+                    }
                     System.out.println("\n[XUẤT BILL THÀNH CÔNG] Tiền đã trao - cháo đã múc, xin cám ơn Quý Khách!");
-                    cart.clear(); // Xóa RAM giỏ hàng
+                    cart.clear();
                 }
             } catch (InvalidInputException e) {
                 System.err.println("\n[LỖI GIAO DỊCH] " + e.getMessage());

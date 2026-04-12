@@ -17,4 +17,14 @@ public interface OrderService {
      * Xem danh sách hóa đơn theo ID Khách hàng
      */
     List<Order> getOrderHistory(int userId) throws DatabaseException;
+
+    /**
+     * Admin: Xem toàn bộ đơn hàng trong hệ thống.
+     */
+    List<Order> getAllOrders() throws DatabaseException;
+
+    /**
+     * Admin: Cập nhật trạng thái đơn hàng theo quy trình 1 chiều.
+     */
+    boolean updateOrderStatus(int orderId, String newStatus) throws InvalidInputException, DatabaseException;
 }

@@ -124,4 +124,50 @@ public class OrderDAOImpl implements OrderDAO {
         }
         return list;
     }
+
+    /**
+     * Admin xem tất cả đơn hàng — JOIN bảng users để biết ai đặt đơn nào.
+     * Nếu chỉ SELECT mỗi bảng orders thì Admin chỉ thấy user_id (số), chẳng biết ai là ai.
+     */
+    @Override
+    public List<Order> getAllOrders() throws Exception {
+        List<Order> list = new ArrayList<>();
+        // LEFT JOIN users để lấy tên khách hàng. Dùng LEFT JOIN phòng trường hợp tài khoản user bị xóa
+        // nhưng đơn hàng vẫn còn trong hệ thống (không mất dữ liệu giao dịch).
+        String sql = "SELECT o.*, u.full_name FROM orders o LEFT JOIN users u ON o.user_id = u.id ORDER BY o.created_at DESC";
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Order o = new Order();
+                o.setId(rs.getInt("id"));
+                o.setUserId(rs.getInt("user_id"));
+                o.setCustomerName(rs.getString("full_name")); // Tên khách đi kèm để Admin nhìn cho dễ
+                int couponId = rs.getInt("coupon_id");
+                if (!rs.wasNull()) { o.setCouponId(couponId); }
+                o.setTotalAmount(rs.getBigDecimal("total_amount"));
+                o.setStatus(Order.OrderStatus.valueOf(rs.getString("status")));
+                o.setShippingAddress(rs.getString("shipping_address"));
+                o.setCreatedAt(rs.getTimestamp("created_at"));
+                list.add(o);
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Đổi trạng thái đơn hàng.
+     * Lưu ý: Ở tầng DAO ta chỉ lo chạy câu UPDATE thôi. Việc kiểm tra "có được phép chuyển trạng thái
+     * từ A sang B không" thuộc về tầng Service (business logic). DAO không quan tâm luật.
+     */
+    @Override
+    public boolean updateOrderStatus(int orderId, String newStatus) throws Exception {
+        String sql = "UPDATE orders SET status = ? WHERE id = ?";
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, newStatus);
+            ps.setInt(2, orderId);
+            return ps.executeUpdate() > 0; // Trả true nếu có ít nhất 1 row bị ảnh hưởng (tức đơn hàng tồn tại)
+        }
+    }
 }
