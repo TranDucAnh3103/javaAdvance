@@ -1,92 +1,80 @@
-# BÁO CÁO PHÂN TÍCH KIẾN TRÚC & NGHIỆP VỤ HỆ THỐNG
-*(Tài liệu dành cho Technical Review và Bảo vệ Dự án)*
-
-**Mã dự án:** PRJ-PHONE-STORE-JAVA-02  
-**Nền tảng:** Java Core + Cơ sở dữ liệu tương quan (MySQL/JDBC)  
-**Kiến trúc cốt lõi:** 3-Tier Architecture kết hợp Nguyên lý SOLID  
+# BÁO CÁO DỰ ÁN: HỆ THỐNG QUẢN LÝ CỬA HÀNG ĐIỆN THOẠI
+*(Kịch bản trình bày chuyên sâu phục vụ Hội đồng Review / Senior)*
 
 ---
 
-## MỤC LỤC
-1. [Tổng Quan Kiến Trúc (Architecture)](#1-tổng-quan-kiến-trúc-architecture)
-2. [Chi Tiết Áp Dụng SOLID Trong Dự Án](#2-chi-tiết-áp-dụng-solid-trong-dự-án)
-3. [Giải Quyết Bài Toán Nghiệp Vụ Xương Sống (Business Logic)](#3-giải-quyết-bài-toán-nghiệp-vụ-xương-sống-business-logic)
-4. [Bảo Mật Dự Án (Security & Integrity)](#4-bảo-mật-dự-án-security--integrity)
-5. [Chiến Lược Trả Lời Vấn Đáp (Senior Q&A Traps)](#5-chiến-lược-trả-lời-vấn-đáp-senior-qa-traps)
+## 1. PHẦN TRÌNH BÀY: LUỒNG TƯ DUY KIẾN TRÚC (5-7 PHÚT)
+
+### Bước 1: Đặt vấn đề (The Problem)
+"Chào các anh/thầy, em xin phép trình bày về hệ thống quản lý bán lẻ thiết bị di động của em. Đối với em, thách thức lớn nhất trong dự án này **không phải là việc lưu trữ và truy xuất dữ liệu thông thường (CRUD)**. Thách thức cốt lõi nằm ở việc **đảm bảo tính toàn vẹn dữ liệu (Data Integrity)** khi hệ thống phải xử lý đồng thời nhiều thao tác phức tạp đan chéo nhau như: áp mã giảm giá, kiểm tra tồn kho thời gian thực, và giao dịch thanh toán."
+
+### Bước 2: Kiến trúc 3 lớp & Interface-First (The Architecture)
+"Để giải quyết vấn đề trên một cách quy củ, em áp dụng **3-Layer Architecture** (Presentation - Service - DAO). Tuy nhiên, ranh giới thiết kế mà em tâm đắc nhất là việc áp dụng triệt để nguyên lý **Dependency Inversion** (Cụ thể là Interface-First). 
+
+Toàn bộ tầng Service của em khi giao tiếp với tầng dữ liệu (DAO) đều thông qua một Interface abstraction thay vì gọi bản cài đặt (Implementation) trực tiếp. 
+> **Mục tiêu:** Để giữ thiết kế ở trạng thái 'Mở'. Giả sử tương lai hệ thống scale-up cần chuyển từ cơ sở dữ liệu MySQL hiện tại sang PostgreSQL hoặc thậm chí gọi qua API bên thứ ba, em **chỉ cần viết một Class Implementation mới** ép kiểu theo Interface cũ, mà không phải đập bỏ hay sửa dù chỉ một dòng logic nghiệp vụ nào ở tầng Service."
+
+### Bước 3: Case Study - Nghiệp vụ "Xương sống" (The Technical Flex)
+"Trong dự án này, em dành nhiều tâm huyết nhất cho module **Thanh toán (Checkout)**. Tại khâu này, hệ thống phải khởi chạy một **Complex Transaction** gồm 4 thao tác rủi ro cao:
+1. Ghi nhận hóa đơn gốc.
+2. Ghi nhận danh sách chi tiết chi nhánh sản phẩm.
+3. Trừ số lượng tồn kho của kho gốc hoặc kho Flash Sale.
+4. Vô hiệu hóa/trừ lượt sử dụng của Coupon.
+
+Em đã cấu hình tước quyền tự động lưu trữ của JDBC (`setAutoCommit(false)`) và **quản lý Connection thủ công**. Chỉ cần khâu trừ kho trả về thất bại do có người khác tranh mua trước, hệ thống ngay lập tức phát động `Rollback` lại trạng thái sạch như lúc đầu. 
+Đặc biệt, để chặn triệt để lỗi **Over-selling (Bán vượt số lượng tồn)**, em áp dụng **Atomic Update trực tiếp bằng SQL** (ép DB xử lý check điều kiện) thay vì chọn giải pháp bất ổn là đọc dữ liệu lên Java (SELECT) tải qua RAM rồi mới tính toán để trừ lại."
 
 ---
 
-## 1. TỔNG QUAN KIẾN TRÚC (ARCHITECTURE)
+## 2. CHIẾN THUẬT PHÒNG THỦ: ĐỐI ĐÁP VỚI SENIOR (Q&A)
 
-Dự án không sử dụng lối code "mì gõ" (Spaghetti code) trực tiếp trên giao diện. Thay vào đó, kiến trúc được xây dựng dựa trên mô hình **3-Layer Architecture** kinh điển, đồng thời áp dụng chia nhỏ theo luồng logic Domain-Driven:
+### Nhóm 1: Câu hỏi về Thiết kế (Design & Scalability)
+**🛡️ Senior hỏi:** *"Tại sao em lại tách Interface cho DAO trong khi dự án này quy mô nhỏ, có mỗi một mình em làm, liệu có đang làm phức tạp hóa vấn đề (Over-engineering) không?"*
 
-*   **Tầng Presentation (Console UI):** Nơi duy nhất tương tác với User (Nhập xuất qua Scanner). Chịu trách nhiệm Format bảng biểu (`System.out.printf`), gom bắt các `Exception` về mặt hiển thị. Hoàn toàn mù tịt về Database.
-*   **Tầng Service (Business Logic):** Não bộ của hệ thống. Đây là nơi chứa các điều kiện If-Else ngặt nghèo (VD: Trừ phần trăm Coupon, kiểm tra giờ Flash sale...). 
-*   **Tầng DAO (Data Access Object):** Tầng "Chân lấm tay bùn" trực tiếp thao tác `PreparedStatement`. Các class ở đây thuần túy trả về Data, không in Console, không phán xét logic kinh doanh.
+**Trả lời:** 
+"Dạ, về mặt ngắn hạn hoặc MVP thì cách làm này có vẻ sinh ra nhiều file và tốn thêm thời gian code. Nhưng em tiếp cận xây dựng nó theo tư duy **Design for Change (Thiết kế để thay đổi)**. Em muốn rèn luyện nghiêm túc và giữ thói quen viết code **‘Loosely Coupled’ (Ghép nối lỏng)**. Hơn thế nữa, việc bọc qua Interface giúp em sau này cực kỳ dễ dàng khi triển khai Unit Test, vì em có thể dễ dàng **Mock dữ liệu (giả lập kết quả)** mà không phụ thuộc việc dự án có đang kết nối được với Database thật hay không."
 
-**Sức mạnh của Module Hóa:**
-Thư mục được bẻ nhỏ thành các khu vực độc lập như `Product`, `Auth`, `Sales`, `Promotion`. Nếu một kịch bản đặt hàng gãy, Dev chỉ đi sâu vào `Service/Sales/OrderService.java` thay vì cuộn chuột 5000 dòng để bói tìm code. Tránh hoàn toàn hiệu ứng lây nhiễm cục bộ.
+### Nhóm 2: Câu hỏi về Performance & Concurrency
+**🛡️ Senior hỏi:** *"Nếu 100 người cùng bấm mua 1 chiếc iPhone cuối cùng trong kho vào đúng 1 giây, hệ thống của em xử lý thế nào? Liệu có bị âm kho không?"*
 
----
+**Trả lời:**
+"Dạ hoàn toàn không ạ. Em không thiết kế kiểu *SELECT stock lên -> kiểm tra ở Java -> UPDATE lại xuống DB*, vì việc có độ trễ logic như vậy chắc chắn sinh ra Race Condition nếu dính I/O chậm. 
+Thay vào đó, em ép cơ sở dữ liệu làm lớp chốt chặn bằng câu lệnh nguyên tử: 
+`UPDATE product_variants SET stock = stock - 1 WHERE id = ? AND stock > 0`.
+Lúc này, bản thân MySQL sẽ tiến hành khóa tạm thời dòng đó lại **(Row-level Lock)**. Ngay sau khi lệnh chạy xong, nếu em thu về biến `affected_rows = 0` (hàng đã bị đổi trạng thái tồn khô từ trước đó 0.001s), em sẽ Throw ngay một **BusinessException** để luồng chạy Rollback và thông báo ra màn hình khách hàng chậm tay đã đánh mất lượt mua."
 
-## 2. CHI TIẾT ÁP DỤNG SOLID TRONG DỰ ÁN
+### Nhóm 3: Câu hỏi về Security & Data
+**🛡️ Senior hỏi:** *"Tại sao ở tính năng xóa sản phẩm hay danh mục em không dùng lệnh DELETE thông thường mà lại dùng cột `is_deleted`?"*
 
-Đây là lớp khiên vững chắc nhất bảo vệ hệ thống trước sự phình to (Scalability):
-
-### S - Single Responsibility Principle (Đơn Trách Nhiệm)
-Mỗi Class sinh ra chỉ có duy nhất một lý do để bị thay đổi. 
-*   `ProductDAOImpl` chỉ làm nhiệm vụ C-R-U-D với DB. Nó sẽ không chứa lệnh báo lỗi ra màn hình hay định dạng Tiền (Trách nhiệm hiển thị nằm ở View). 
-*   `ConnectDB` chỉ sinh ra Connection, không tự giữ cấu hình Hard-Code mà bóc tách từ file môi trường (`.ENV`).
-
-### O - Open/Closed Principle (Đóng / Mở)
-Code mở rộng tính năng mới thoải mái nhưng đóng lại với việc sửa trực tiếp code cũ. 
-*   Mọi logic giữa Model DB và phần App đều thông qua **Interface** (`ProductDAO`, `OrderService`...). Ngày mai, nếu công ty đổi từ MySQL sang PostgreSQL, ta chỉ cần tạo class `ProductDAOImplPostgres` implement `ProductDAO`. Phần `ProductService` cũ hoàn toàn không cần đổi nửa dòng code.
-
-### D - Dependency Inversion Principle (Đảo ngược sự phụ thuộc)
-Module tầng cao không được phụ thuộc trực tiếp vào logic tầng thấp.
-*   Trong các hàm `Service`, ta tiêm (Inject) bằng Interface thay vì gọi tên cụ thể Implementation.  
-    *Ví dụ chuẩn mẫu:* `ProductDAO productDAO = new ProductDAOImpl();` - Ta đang làm việc với cái Vỏ Abstraction.
+**Trả lời:**
+"Dạ, đây là cơ chế **Soft Delete (Xóa mềm)** đặc thù, rất bắt buộc trong mô hình E-commerce. Dữ liệu lịch sử hóa đơn tài chính (Orders) thuộc về quý trước hay năm trước luôn cần tham chiếu ID gốc trỏ đến bảng sản phẩm để hiển thị thống kê.
+Nếu em dùng lệnh cứng (Hard Delete) để tiêu hủy sản phẩm, toàn bộ lịch sử các đơn hàng liên quan sẽ văng lỗi **Foreign Key Constraint**, hoặc em phải chấp nhận cho nó bị ép xóa theo, dẫn đến mồ côi và mất mát dữ liệu tài chính. Việc dùng trạng thái `is_deleted = true` giúp em bảo toàn 100% tính nguyên vẹn của dòng lịch sử trong Data Warehouse, mà vẫn đạt được mục tiêu che giấu (Filter) sản phẩm đó khỏi tầm nhìn của người dùng ngoài UI."
 
 ---
 
-## 3. GIẢI QUYẾT BÀI TOÁN NGHIỆP VỤ XƯƠNG SỐNG (BUSINESS LOGIC)
+## 3. NHỮNG "BẪY" CẦN TRÁNH TRONG GIAO TIẾP (SENIOR TRAPS)
 
-Không dừng ở mức C-R-U-D Entity đơn thuần, dự án chứa các nghiệp vụ chuyên ngành E-Commerce:
+Trong suốt quá trình bảo vệ, **tuyệt đối KHÔNG sử dụng** các cách biện minh ngây ngô thiếu căn cứ như:
+- ❌ *"Em thấy trên mạng người ta làm thế nên em làm theo"*
+- ❌ *"Thầy em dạy thế này là tốt nhất nên em áp dụng"*
 
-### 3.1 Giao Dịch Đồng Tiền Phải Nguyên Vẹn (ACID Transaction)
-Quá trình Checkout của 1 giỏ hàng có nhiều bước: *Lưu Order -> Lưu OrderDetail xN -> Trừ Stock SP xN -> Trừ Data Lượt của Coupon*.
-> **Cách xử lý code:** Vô hiệu Autocommit bằng `connection.setAutoCommit(false);`. Đưa tất cả logic qua chung 1 phiên DB. Chỉ cần một khâu Trừ Kho thất bại do có khách khác nhảy vào vét hàng, mã sẽ phát động tẩu thoát và khôi phục toàn bộ trạng thái gốc: `connection.rollback()`.
-
-### 3.2 Tách Vỏ Đơn Giá Lịch Sử
-Giá Điện thoại có thể rớt sau 3 tháng. Vậy dữ liệu Doanh thu các tháng trước làm thế nào không bị nhảy số?
-> **Cách xử lý trong Database:** Bảng `order_details` có một cột sống còn là `unit_price`. Lúc Insert đơn hàng, hệ thống clone cứng giá trị của SP thời điểm đó gắn hẳn vào dòng này. Khi tính tổng doanh thu sẽ dùng SUM cột hoá đơn thay vì JOIN bảng Sản phẩm.
-
-### 3.3 Bài Toán Cạnh Tranh (Race Condition) và Over-selling
-10 người bấm thanh toán 1 điện thoại cấu hình tồn kho đúng 1 chiếc cuối cùng. Java xử lý thế nào?
-> **Xử lý:** Không dùng `SELECT stock = ?` xuống RAM rồi mới `UPDATE` lại DB, điều đó gây ra lệch phiên nếu Thread bị tắc. Dự án khoán hoàn toàn atomic check cho MySQL xử lý trong 1 Query đơn nhất.
-> `UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?` 
-> Bất kỳ tác vụ cập nhật nào trả ra Affected Row = 0 thì Service sẽ quăng Exception Từ chối bán.
+**Các thuật ngữ "Vũ Khí Kỹ Thuật" sẽ được sử dụng thay thế để đưa ra lập luận:**
+- ✅ *"Dựa trên đánh giá về **sự đánh đổi (Trade-off)** giữa tốc độ và độ toàn vẹn, em quyết định..."*
+- ✅ *"Để đảm bảo tính mở rộng cao nhất **(Scalability)** cho bảo trì sau này, hệ thống ưu tiên cách..."*
+- ✅ *"Em lựa chọn giải pháp đẩy logic này xuống DB vì nó phân tán tải và tối ưu bớt số lượng kết nối **(IO Database)...***"
 
 ---
 
-## 4. BẢO Mật DỰ ÁN (SECURITY & INTEGRITY)
-1.  **Băm Nát Mật Khẩu với BCrypt:** Mật khẩu Khách Hàng khi nhập vào được chạy Hash tự động. Kể cả tài khoản Root Database bị hack, hacker cũng chỉ nhìn ra các dải Base64 vô tri, phòng thủ kiểu Brute-Force hoặc Rainbow Tables.
-2.  **Soft-Delete Giữ Thể Diện Dữ Liệu:** Bảng *Product/Category* có cột `is_deleted = true(1)`. Khi Admin nhấn Lệnh Xóa. Hàng không bị "bay màu" (DELETE) để dẫn đến lỗi thảm họa mất sạch Đơn hàng cũ đang trỏ Khóa ngoại đến nó. Thay vào đó nó bị "cất giấu" ẩn đi.
+## 4. CÁC GỢI Ý CẢI THIỆN ĐỂ "ĂN ĐIỂM" TUYỆT ĐỐI
+
+*(Khi được hỏi: Em cảm thấy dự án mình còn có thể nâng cấp thêm ở phương diện nào? Hoặc em đã làm những công việc ẩn nào bên dưới)*
+
+### Xây dựng Custom Exception Handling chuyên sâu
+> "Thay vì để chương trình văng Exception báo lỗi stack trace đỏ lòm của mặc định Java (PrintStackTrace) làm lộ cấu trúc hệ thống, em có nhúng một cơ chế bọc lỗi (Wrapper) với **AppException** riêng rẽ. Nó giúp em phân loại triệt để khối lượng công việc nào là do **Lỗi Nghiệp Vụ (Khách nhập sai)**, đâu là **Lỗi Hệ thống (Database Down)**. Hành động này vừa tăng trải nghiệm UI vừa che lấp cấu trúc Database bên dưới tránh Hacker thu thập manh mối."
+
+### Hệ thống kiểm toán ngầm (Logging)
+> "Em nhận thức được giá trị của Audit Log. Mọi động tác chuyển hóa quan trọng nhất tại hàm Checkout đều có vết **Ghi Log** lại. Điều này có ý nghĩa to lớn với phòng Support/Admin. Nếu khách phàn nàn vì sao lúc tôi mua được báo thành công mà tiền về không thấy hàng, Admin tra ngược mã đơn qua Log thay vì ngồi đọc lại triệu dòng code để đoán bệnh."
 
 ---
-
-## 5. CHIẾN LƯỢC TRẢ LỜI VẤN ĐÁP (SENIOR Q&A TRAPS)
-
-Bộ câu hỏi phòng thủ dùng để đối thoại với Giáo Viên / Senior Tech Lead:
-
-**Q1: Tại sao không dùng chuẩn Framework (như Hibernate/JPA) mà lại viết chay JDBC vất vả?**
-> Đứng dưới góc độ một hệ thống yêu cầu hiệu năng siêu cao và độ phân giải chi tiết, Native SQl PreparedStatement cung cấp sức mạnh tối thượng. Hệ thống chặn được nổ kho (Over-selling) vì ta nắm rõ ta cấp quyền Khóa (Lock/Check) tại Row nào của DB. ORM nhiều khi che đi (abstract leak) khiến ta rất khó tinh chỉnh dòng chảy Query này. Hơn thế, tự dệt JDBC chứng minh Core Java rất chắc rễ.
-
-**Q2: Tại sao Coupon giảm chiết khấu chỉ xử lý logic trên Java (Service) chứ không để MySQL tính sẵn trong Trigger/View?**
-> Vì Promotion ở E-commerce liên tục biến đổi. Hôm nay là giảm %, ngày mai là giảm tiền cứng (Fixed amount). Database chỉ nên đóng vai trò là Storage Storage (Nơi lưu trữ lạnh), mọi quy tắc, tính toán kinh doanh phức tạp (Business Rules) bắt buộc phải dồn về Tầng Service xử lý. Đem nó nhét vào DB cấu trúc sẽ bị bẻ gãy khi maintain (Anti-pattern).
-
-**Q3: Kích thước Database phình ra thì xử lý giỏ hàng kiểu gì? Có sợ bị phình bộ nhớ khách chờ?**
-> Ở dự án này Cart (Giỏ hàng) không lưu bám dưới DB (Bỏ qua Cart Table Database). Mà giỏ hàng được đúc vào `Session/RAM` tại Local Client trước khi Checkout. Chỉ những đơn hàng đã Chốt thành công mới đẩy Write xuống DB. Điều này giảm thiểu IO Disk tối đa với những người đi loanh quanh Siêu thị nhét đồ vào giỏ nhưng không thanh toán.
-
---- 
-*Dự án 100% tuân thủ chặt chẽ nguyên lý Clean Code và Software Architecture tiêu chuẩn E-Commerce lớn.*
+💡 **Lưu ý tối quan trọng khi lên bảo vệ Demo:**
+Hãy chuẩn bị sẵn / nháp ra giấy / hoặc vẽ trên slide 1 bản đồ **Data Flow** (Luồng chạy dữ liệu) để minh họa rõ: **"Khi User bấm nút Y (Thanh toán) trên Console, chuỗi Request len lỏi qua View -> Controller/Service -> Cổng mở DAO -> Database nạp ra sao, và Response nó quay đầu kẹp thông tin gì để in ra Bill."** Seniors cực kỳ đánh giá cao Sinh viên nắm rõ luồng đi vật lý của hệ thống!
