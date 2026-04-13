@@ -1,4 +1,4 @@
-import Presentation.LoginRegister;
+import Presentation.Auth.LoginRegister;
 String pad = " ".repeat(40);
 
 void main() {
